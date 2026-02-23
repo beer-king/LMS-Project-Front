@@ -1,7 +1,7 @@
 # lms-app (lms-project)
 
-lms
-
+동영상 강의를 단순히 듣고 끝내는것이 아닌 수료 로직을 추가하여 만들어보자
+vue3, quasar
 ## Install the dependencies
 
 ```bash
