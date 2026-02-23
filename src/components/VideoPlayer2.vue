@@ -80,7 +80,7 @@ onMounted(() => {
 
   loadChapters()
 
-  currentChapterIndex.value = 0
+  //currentChapterIndex.value = 0
 
   player = videojs(videoPlayer.value, props.options, () => {
 
@@ -97,6 +97,8 @@ onMounted(() => {
       console.log('📦 minStaySeconds:', minStaySeconds.value) // 한 구간을 완료로 인정하기 위한 최소 체류 시간
 
       const lastTime = await loadLastWatchedTime() // 이전시청위치 조회
+      
+      console.log('이전 시청 위치:', lastTime)
 
       if (lastTime && lastTime > 0) {
         player.currentTime(lastTime)
@@ -110,7 +112,7 @@ onMounted(() => {
 
     })
 
-    player.on('timeupdate', () => { // 동영상 시간 바뀔때마다 1,2초
+    player.on('timeupdate', async() => { // 동영상 시간 바뀔때마다 1,2초
       const currentSecond = Math.floor(player.currentTime()) // 현재 동영상 시간
 
       // 🔥 첫 호출 초기화
@@ -121,23 +123,27 @@ onMounted(() => {
 
       const delta = currentSecond - lastSecond
 
-      // ❌ seek / 배속 / 튐 방지
-      if (delta <= 0 || delta > 2) {
-        lastSecond = currentSecond
-        return
-      }
-
       // 30초 단위 저장
       if (currentSecond - lastSavedTime >= SAVE_INTERVAL) {
-        saveLastWatchedTime(currentSecond)
+        await saveLastWatchedTime(currentSecond)
         lastSavedTime = currentSecond
       }
 
       // 진행률 UI
       if (player.duration() > 0) {
-        progress.value = Math.floor(
-          (currentSecond / player.duration()) * 100
+
+        const duration = Math.floor(player.duration())
+
+        progress.value = Math.min(
+          99, Math.floor((currentSecond / duration) * 100)
         )
+      }
+
+      // ❌ seek / 배속 / 튐 방지
+      if (delta <= 0 || delta > 2) {
+        lastSecond = currentSecond
+        handleChapterControl()
+        return
       }
 
       /* ===============================
@@ -176,7 +182,7 @@ onMounted(() => {
       // ✅ 최소 체류 달성
       if (next >= minStaySeconds.value) {
         completedSegmentSet.add(segmentIndex)
-        sendSegmentProgress(segmentIndex)
+        await sendSegmentProgress(segmentIndex)
       }
 
       lastSecond = currentSecond
@@ -184,18 +190,23 @@ onMounted(() => {
       handleChapterControl()
     })
 
-    //player.on('ended', checkCompletion)
+    player.on('ended', async () => {
+      progress.value = 100
+      await checkCompletion()
+      saveLastWatchedTime(0)
+      lastSavedTime = 0
+    })
+
 
     /* ===============================
        📌 pause 시 저장
     ================================ */
-    player.on('pause', () => {
-      saveLastWatchedTime(player.currentTime())
+    player.on('pause', async() => {
+      const current = Math.floor(player.currentTime())
+      await saveLastWatchedTime(current)
+      lastSavedTime = current
     })
 
-    player.on('ended', () => {
-      saveLastWatchedTime(0) // 완료 시 0으로 초기화
-    })  
 
     /* ===============================
      📌 페이지 이탈 시 저장
@@ -224,20 +235,31 @@ const handlePageHide = () => {
 /* ===============================
   📘 챕터 종료 감지
 ================================ */
-const handleChapterControl = () => {
-  
+const handleChapterControl = async() => {
+
+    //console.log("======handleChapterControl======")
+
     const chapter = chapters.value[currentChapterIndex.value]
+    //console.log("현재 챕터:", chapter)
     if (!chapter) return
 
     // 챕터 종료 시점 도달
     if (
-      player.currentTime() >= chapter.endTime &&
+      player.currentTime() >= chapter.endSec &&
       !showNextChapterBtn.value
     ) {
       player.pause()
 
       // ✅ 챕터 진도 저장
       sendChapterProgress(chapter)
+
+      // 🔥 마지막 챕터면 바로 수료
+      if (currentChapterIndex.value === chapters.value.length - 1) {
+          progress.value = 100
+          await checkCompletion()
+          await saveLastWatchedTime(0)
+          return
+      }
 
       showNextChapterBtn.value = true
     }
@@ -294,6 +316,7 @@ const loadChapters = async () => {
     (a, b) => a.chapterIndex - b.chapterIndex // 오름차순 정렬 패턴
   )
 
+   currentChapterIndex.value = 0
   console.log("챕터 데이터 : " + JSON.stringify(chapters.value))
 }
 
@@ -301,29 +324,25 @@ const loadChapters = async () => {
 const goNextChapter = async() => {
   showNextChapterBtn.value = false
 
-   // 마지막 챕터면 수료 체크
-  if (isLastChapter()) {
-    await checkCompletion()
-    return
-  }
-
   currentChapterIndex.value++
 
   const nextChapter = chapters.value[currentChapterIndex.value]
 
   // 다음 챕터 시작 지점으로 이동
-  player.currentTime(nextChapter.startTime)
+  player.currentTime(nextChapter.startSec)
   player.play()
 }
 
 // 마지막 챕터인지 확인
-const isLastChapter = () => {
+/*const isLastChapter = () => {
+  console.log("현재 index:", currentChapterIndex.value)
+  console.log("챕터 길이:", chapters.value.length)
   return currentChapterIndex.value === chapters.value.length - 1
-}
+}*/
 
 const sendChapterProgress = async (chapter) => {
   await axios.post(
-    'http://localhost:8080/api/progress/chapter',
+    'http://localhost:8080/api/lecture/chapter/progress',
     {
       userId: 'test_user_01',
       lectureId: props.lectureId,
