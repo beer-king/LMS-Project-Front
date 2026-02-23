@@ -62,7 +62,6 @@ const showNextChapterBtn = ref(false) // 다음 버튼 표시 여부
 let lastSavedTime = 0       // 마지막으로 DB에 저장된 시점
 const SAVE_INTERVAL = 30    // 30초 단위 저장
 
-
 /*재생 중
  ├─ segment 로직 → "봤는지" 체크
  ├─ chapter end_time 도달
