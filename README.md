@@ -14,10 +14,13 @@ Resume(이어보기) 데이터가 쉽게 깨짐
 그래서 “실제로 봤는가?”를 기준으로 판단하는 구조를 만들어보기로했다. ex)법정의무교육
 
 ================전체구조================
+
 Frontend (Vue + Player)
         ↓
+        
 Backend (Spring + MyBatis)
         ↓
+        
 MySQL (
       lecture(강의(동영상) 기본 정보)
       lecture_chapter(강의별 챕터 정의(수동 시간 입력))
