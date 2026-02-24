@@ -132,7 +132,7 @@ onMounted(() => {
       // 진행률 UI
       if (player.duration() > 0) {
 
-        const duration = Math.floor(player.duration())
+        const duration = Math.floor(player.duration()) // 내림안해주면 예) 46/46.72 * 100 => 98.xxx 다들어도 100% 안될수도잇음
 
         progress.value = Math.min(
           99, Math.floor((currentSecond / duration) * 100)
@@ -321,7 +321,7 @@ const loadChapters = async () => {
 }
 
 // 다음 챕터로 이동
-const goNextChapter = async() => {
+const goNextChapter = () => {
   showNextChapterBtn.value = false
 
   currentChapterIndex.value++
